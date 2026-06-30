@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { PortfolioPage } from "../components/portfolio-page";
 import { getDashboardContent } from "../lib/content-store";
 

@@ -123,7 +123,13 @@ export function AdminDashboard({ initialContent, onContentChange }: Props) {
       body: JSON.stringify({ projects, contacts, deploySteps })
     });
 
-    setStatus(response.ok ? nextStatus : "Save failed");
+    if (!response.ok) {
+      const error = (await response.json().catch(() => null)) as { error?: string } | null;
+      setStatus(error?.error ?? "Save failed");
+      return;
+    }
+
+    setStatus(nextStatus);
   }
 
   return (

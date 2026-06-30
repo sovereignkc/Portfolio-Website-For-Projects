@@ -105,7 +105,10 @@ export async function getDashboardContent() {
 export async function updateDashboardContent(nextContent: DashboardContent) {
   const cloned = cloneContent(nextContent);
   globalForContent.__portfolioContentStore = cloned;
-  await writeDbContent(cloned);
+  const persisted = await writeDbContent(cloned);
+  if (!persisted) {
+    throw new Error("Unable to save dashboard content to the database");
+  }
   return cloneContent(cloned);
 }
 

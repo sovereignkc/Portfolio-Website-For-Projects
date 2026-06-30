@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthCookie } from "../../../lib/auth";
 import { getDashboardContent, updateDashboardContent } from "../../../lib/content-store";
@@ -27,11 +30,18 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const content = updateDashboardContent({
-    projects: body.projects,
-    contacts: body.contacts,
-    deploySteps: body.deploySteps
-  });
+  try {
+    const content = await updateDashboardContent({
+      projects: body.projects,
+      contacts: body.contacts,
+      deploySteps: body.deploySteps
+    });
 
-  return NextResponse.json({ ok: true, ...content });
+    return NextResponse.json({ ok: true, ...content });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Failed to persist content" },
+      { status: 500 }
+    );
+  }
 }
