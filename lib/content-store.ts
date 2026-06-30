@@ -16,6 +16,10 @@ const globalForContent = globalThis as typeof globalThis & {
   __portfolioSql?: ReturnType<typeof postgres>;
 };
 
+function hasDatabaseUrl() {
+  return Boolean(process.env.DATABASE_URL);
+}
+
 const sql =
   globalForContent.__portfolioSql ??
   postgres(process.env.DATABASE_URL ?? "", {
@@ -57,6 +61,10 @@ async function ensureTable() {
 }
 
 async function readDbContent() {
+  if (!hasDatabaseUrl()) {
+    return null;
+  }
+
   try {
     await ensureTable();
     const rows = await sql<[{ content: DashboardContent }]>`
@@ -69,11 +77,15 @@ async function readDbContent() {
     const row = rows[0];
     return row?.content ? cloneContent(row.content) : null;
   } catch {
-    return null;
+    throw new Error("Unable to read dashboard content from the database");
   }
 }
 
 async function writeDbContent(content: DashboardContent) {
+  if (!hasDatabaseUrl()) {
+    return false;
+  }
+
   try {
     await ensureTable();
     await sql`
@@ -95,18 +107,22 @@ export async function getDashboardContent() {
     return stored;
   }
 
-  if (!globalForContent.__portfolioContentStore) {
+  if (!hasDatabaseUrl() && !globalForContent.__portfolioContentStore) {
     globalForContent.__portfolioContentStore = defaultContent();
   }
 
-  return cloneContent(globalForContent.__portfolioContentStore);
+  if (hasDatabaseUrl()) {
+    return defaultContent();
+  }
+
+  return cloneContent(globalForContent.__portfolioContentStore ?? defaultContent());
 }
 
 export async function updateDashboardContent(nextContent: DashboardContent) {
   const cloned = cloneContent(nextContent);
   globalForContent.__portfolioContentStore = cloned;
   const persisted = await writeDbContent(cloned);
-  if (!persisted) {
+  if (hasDatabaseUrl() && !persisted) {
     throw new Error("Unable to save dashboard content to the database");
   }
   return cloneContent(cloned);
