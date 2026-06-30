@@ -44,18 +44,44 @@ function cloneContent(content: DashboardContent): DashboardContent {
   };
 }
 
+function isIgnorableNotice(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const maybeError = error as {
+    code?: string;
+    severity?: string;
+    severity_local?: string;
+    message?: string;
+  };
+
+  return (
+    maybeError.code === "42P07" ||
+    maybeError.severity === "NOTICE" ||
+    maybeError.severity_local === "NOTICE" ||
+    maybeError.message?.includes("already exists")
+  );
+}
+
 async function ensureTable() {
   if (globalForContent.__portfolioContentReady) {
     return;
   }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS portfolio_content (
-      id TEXT PRIMARY KEY,
-      content JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS portfolio_content (
+        id TEXT PRIMARY KEY,
+        content JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+  } catch (error) {
+    if (!isIgnorableNotice(error)) {
+      throw error;
+    }
+  }
 
   globalForContent.__portfolioContentReady = true;
 }
@@ -77,7 +103,7 @@ async function readDbContent() {
     const row = rows[0];
     return row?.content ? cloneContent(row.content) : null;
   } catch {
-    throw new Error("Unable to read dashboard content from the database");
+    return null;
   }
 }
 
