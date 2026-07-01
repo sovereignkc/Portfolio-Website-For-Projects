@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAuthCookie } from "../../../lib/auth";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+import { NextRequest, NextResponse } from "next/server";import { verifyAuthCookie } from "../../../lib/auth";
 import { getProjects, updateProjects } from "../../../lib/projects";
 import type { Project } from "../../../lib/site-content";
 
