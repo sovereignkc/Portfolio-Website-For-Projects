@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,36 +14,29 @@ async function isAuthed(request: NextRequest) {
 export async function GET() {
   try {
     const projects = await getProjects();
-    console.log("📡 GET REQUEST: Successfully fetched projects count:", projects?.length);
     return NextResponse.json({ projects });
-  } catch (err: any) {
-    console.error("🚨 GET API ERROR:", err.message);
-    return NextResponse.json({ projects: [], error: err.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load projects";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  console.log("🚀 PUT REQUEST: Incoming save transaction triggered...");
-  
   if (!(await isAuthed(request))) {
-    console.log("🚨 PUT FAILURE: Unauthorized admin cookie profile.");
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
-    console.log("📦 PUT PAYLOAD RECEIVED:", JSON.stringify(body));
+    const body = (await request.json()) as { projects?: Project[] };
 
-    if (!body || !Array.isArray(body.projects)) {
-      console.log("🚨 PUT FAILURE: Payload is missing the 'projects' array block!");
-      return NextResponse.json({ ok: false, error: "Invalid array payload structure" }, { status: 400 });
+    if (!Array.isArray(body.projects)) {
+      return NextResponse.json({ ok: false, error: "Expected payload shape { projects: Project[] }" }, { status: 400 });
     }
 
     const projects = await updateProjects(body.projects);
-    console.log("✅ PUT SUCCESS: Database pipeline updated completely. New count:", projects?.length);
     return NextResponse.json({ ok: true, projects });
-  } catch (err: any) {
-    console.error("🚨 DATABASE OPERATION CRASHED:", err.message);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save projects";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

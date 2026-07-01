@@ -5,15 +5,11 @@ import { AdminDashboard } from "./admin/admin-dashboard";
 import { LoginForm } from "./admin/login-form";
 import { AssistantPanel } from "./assistant-panel";
 import { Icon } from "./icon";
-import { siteContent, type ContactLink, type DeployStep, type Project } from "../lib/site-content";
+import { siteContent, type Project } from "../lib/site-content";
 
 type PortfolioPageProps = {
   projects: Project[];
-  contacts: ContactLink[];
-  deploySteps: DeployStep[];
 };
-
-type DashboardContent = PortfolioPageProps;
 
 function badgeClass(accent: string) {
   return accent === "cyan"
@@ -22,12 +18,12 @@ function badgeClass(accent: string) {
 }
 
 export function PortfolioPage(initialContent: PortfolioPageProps) {
-  const [content, setContent] = useState<DashboardContent>(initialContent);
+  const [projects, setProjects] = useState<Project[]>(initialContent.projects);
   const [editorOpen, setEditorOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
-  const [featured, ...rest] = content.projects;
+  const [featured, ...rest] = projects;
 
   const stats = useMemo(() => siteContent.footerStats, []);
 
@@ -75,7 +71,7 @@ export function PortfolioPage(initialContent: PortfolioPageProps) {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              {content.contacts.map((contact) => (
+              {siteContent.contacts.map((contact) => (
                 <a
                   key={contact.label}
                   href={contact.href}
@@ -118,7 +114,7 @@ export function PortfolioPage(initialContent: PortfolioPageProps) {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {content.deploySteps.map((step, index) => (
+              {siteContent.deploySteps.map((step, index) => (
                 <article key={`${step.title}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-[0.26em] text-white/35">Step {index + 1}</div>
                   <h3 className="mt-2 text-sm font-semibold text-white">{step.title}</h3>
@@ -200,7 +196,7 @@ export function PortfolioPage(initialContent: PortfolioPageProps) {
               </button>
             </div>
             <div className="p-5">
-              <AdminDashboard initialContent={content} onContentChange={setContent} />
+              <AdminDashboard initialProjects={projects} onProjectsChange={setProjects} />
             </div>
           </div>
         </div>

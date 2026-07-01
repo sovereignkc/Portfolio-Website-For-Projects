@@ -3,10 +3,8 @@ export const revalidate = 0;
 
 import Link from "next/link";
 import { AdminDashboard } from "../../components/admin/admin-dashboard";
-import { getDashboardContent } from "../../lib/content-store";
 
 export default async function AdminPage() {
-  const content = await getDashboardContent();
   return (
     <main className="min-h-screen bg-bg px-4 py-8 text-white">
       <div className="mx-auto max-w-6xl">
@@ -19,7 +17,7 @@ export default async function AdminPage() {
             View site
           </Link>
         </div>
-        <AdminDashboard initialContent={content} />
+        <AdminDashboard />
       </div>
     </main>
   );

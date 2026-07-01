@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { PortfolioPage } from "../components/portfolio-page";
@@ -6,5 +6,5 @@ import { getDashboardContent } from "../lib/content-store";
 
 export default async function Page() {
   const content = await getDashboardContent();
-  return <PortfolioPage {...content} />;
+  return <PortfolioPage projects={content.projects} />;
 }

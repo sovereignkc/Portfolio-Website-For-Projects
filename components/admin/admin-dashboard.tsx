@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ContactLink, DeployStep, Project } from "../../lib/site-content";
-
-type DashboardContent = {
-  projects: Project[];
-  contacts: ContactLink[];
-  deploySteps: DeployStep[];
-};
+import type { Project } from "../../lib/site-content";
 
 type Props = {
-  initialContent: DashboardContent;
-  onContentChange?: (content: DashboardContent) => void;
+  initialProjects?: Project[];
+  onProjectsChange?: (projects: Project[]) => void;
 };
 
 const emptyProject: Project = {
@@ -29,42 +23,55 @@ const emptyProject: Project = {
   accent: "violet"
 };
 
-const emptyContact: ContactLink = {
-  label: "Contact",
-  href: "mailto:you@example.com",
-  description: "Short contact description",
-  icon: "send"
-};
-
-const emptyDeployStep: DeployStep = {
-  title: "Deploy step",
-  body: "Describe the deployment step here."
-};
-
-export function AdminDashboard({ initialContent, onContentChange }: Props) {
-  const [projects, setProjects] = useState<Project[]>(initialContent.projects);
-  const [contacts, setContacts] = useState<ContactLink[]>(initialContent.contacts);
-  const [deploySteps, setDeploySteps] = useState<DeployStep[]>(initialContent.deploySteps);
-  const [status, setStatus] = useState<string>("Ready");
+export function AdminDashboard({ initialProjects, onProjectsChange }: Props) {
+  const [projects, setProjects] = useState<Project[]>(initialProjects ?? []);
+  const [status, setStatus] = useState<string>("Loading...");
   const hasMounted = useRef(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjects() {
+      setStatus("Loading...");
+      try {
+        const response = await fetch("/api/projects", { cache: "no-store" });
+        if (!response.ok) {
+          const error = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(error?.error ?? "Unable to load projects");
+        }
+
+        const data = (await response.json()) as {
+          projects?: Project[];
+          content?: { projects?: Project[] };
+        };
+        const loadedProjects = data.projects ?? data.content?.projects ?? [];
+
+        if (!cancelled) {
+          setProjects(loadedProjects);
+          setStatus("Ready");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatus(error instanceof Error ? error.message : "Failed to load projects");
+        }
+      }
+    }
+
+    void loadProjects();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const preview = useMemo(
-    () =>
-      JSON.stringify(
-        {
-          projects,
-          contacts,
-          deploySteps
-        },
-        null,
-        2
-      ),
-    [projects, contacts, deploySteps]
+    () => JSON.stringify({ projects }, null, 2),
+    [projects]
   );
 
   useEffect(() => {
-    onContentChange?.({ projects, contacts, deploySteps });
-  }, [projects, contacts, deploySteps, onContentChange]);
+    onProjectsChange?.(projects);
+  }, [projects, onProjectsChange]);
 
   useEffect(() => {
     if (!hasMounted.current) {
@@ -77,23 +84,11 @@ export function AdminDashboard({ initialContent, onContentChange }: Props) {
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [projects, contacts, deploySteps]);
+  }, [projects]);
 
   function updateProject(index: number, patch: Partial<Project>) {
     setProjects((current) =>
       current.map((project, currentIndex) => (currentIndex === index ? { ...project, ...patch } : project))
-    );
-  }
-
-  function updateContact(index: number, patch: Partial<ContactLink>) {
-    setContacts((current) =>
-      current.map((contact, currentIndex) => (currentIndex === index ? { ...contact, ...patch } : contact))
-    );
-  }
-
-  function updateDeployStep(index: number, patch: Partial<DeployStep>) {
-    setDeploySteps((current) =>
-      current.map((step, currentIndex) => (currentIndex === index ? { ...step, ...patch } : step))
     );
   }
 
@@ -107,20 +102,12 @@ export function AdminDashboard({ initialContent, onContentChange }: Props) {
     ]);
   }
 
-  function addContact() {
-    setContacts((current) => [...current, { ...emptyContact }]);
-  }
-
-  function addDeployStep() {
-    setDeploySteps((current) => [...current, { ...emptyDeployStep }]);
-  }
-
   async function save(nextStatus = "Saved") {
     setStatus("Saving...");
-    const response = await fetch("/api/content", {
+    const response = await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projects, contacts, deploySteps })
+      body: JSON.stringify({ projects })
     });
 
     if (!response.ok) {
@@ -135,8 +122,16 @@ export function AdminDashboard({ initialContent, onContentChange }: Props) {
   return (
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <div className="space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+          {status === "Loading..." ? "Loading projects from /api/projects..." : status}
+        </div>
         <SectionTitle title="Project cards" subtitle="Front image, links, and doc buttons" />
         <div className="space-y-4">
+          {projects.length === 0 ? (
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/50">
+              No projects loaded yet.
+            </div>
+          ) : null}
           {projects.map((project, index) => (
             <div key={project.id} className="glass rounded-3xl border border-white/10 p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
@@ -206,70 +201,6 @@ export function AdminDashboard({ initialContent, onContentChange }: Props) {
 
           <button type="button" onClick={addProject} className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-900">
             + Add project
-          </button>
-        </div>
-
-        <SectionTitle title="Contacts" subtitle="Clickable contact links for the header/footer" />
-        <div className="space-y-3">
-          {contacts.map((contact, index) => (
-            <div key={`${contact.label}-${index}`} className="glass rounded-3xl border border-white/10 p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-medium">{contact.label}</div>
-                <button
-                  type="button"
-                  onClick={() => setContacts((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                  className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-100"
-                >
-                  Remove
-                </button>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Label" value={contact.label} onChange={(value) => updateContact(index, { label: value })} />
-                <Field label="Href" value={contact.href} onChange={(value) => updateContact(index, { href: value })} />
-                <Field
-                  label="Description"
-                  value={contact.description}
-                  onChange={(value) => updateContact(index, { description: value })}
-                />
-                <Field label="Icon" value={contact.icon} onChange={(value) => updateContact(index, { icon: value as ContactLink["icon"] })} />
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={addContact} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75">
-            + Add contact
-          </button>
-        </div>
-
-        <SectionTitle title="Vercel steps" subtitle="Editable deployment checklist" />
-        <div className="space-y-3">
-          {deploySteps.map((step, index) => (
-            <div key={`${step.title}-${index}`} className="glass rounded-3xl border border-white/10 p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-medium">Step {index + 1}</div>
-                <button
-                  type="button"
-                  onClick={() => setDeploySteps((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                  className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-100"
-                >
-                  Remove
-                </button>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field
-                  label="Title"
-                  value={step.title}
-                  onChange={(value) => updateDeployStep(index, { title: value })}
-                />
-                <Field
-                  label="Body"
-                  value={step.body}
-                  onChange={(value) => updateDeployStep(index, { body: value })}
-                />
-              </div>
-            </div>
-          ))}
-          <button type="button" onClick={addDeployStep} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75">
-            + Add step
           </button>
         </div>
 
