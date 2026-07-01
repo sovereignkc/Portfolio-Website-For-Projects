@@ -1,47 +1,43 @@
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthCookie } from "../../../lib/auth";
-import { getDashboardContent, updateDashboardContent } from "../../../lib/content-store";
-import type { ContactLink, DeployStep, Project } from "../../../lib/site-content";
+import { getProjects, updateProjects } from "../../../lib/projects";
 
 async function isAuthed(request: NextRequest) {
   const cookie = request.cookies.get("portfolio_admin")?.value;
-  return cookie ? await verifyAuthCookie(cookie) : false;
+  return cookie ? verifyAuthCookie(cookie) : false;
 }
 
 export async function GET() {
-  return NextResponse.json(await getDashboardContent());
+  try {
+    const projects = await getProjects();
+    // Wrap it in whatever top-level structural object key the dashboard expects
+    return NextResponse.json({ projects, content: { projects } });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function PUT(request: NextRequest) {
   if (!(await isAuthed(request))) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
-
-  const body = (await request.json()) as Partial<{
-    projects: Project[];
-    contacts: ContactLink[];
-    deploySteps: DeployStep[];
-  }>;
-
-  if (!Array.isArray(body.projects) || !Array.isArray(body.contacts) || !Array.isArray(body.deploySteps)) {
-    return NextResponse.json({ ok: false }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const content = await updateDashboardContent({
-      projects: body.projects,
-      contacts: body.contacts,
-      deploySteps: body.deploySteps
-    });
+    const body = await request.json();
+    
+    // Extract the projects array regardless of whether Codex nested it under body.projects or body.content.projects
+    const incomingProjects = body.projects || body.content?.projects || body.content;
 
-    return NextResponse.json({ ok: true, ...content });
-  } catch (error) {
-    return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Failed to persist content" },
-      { status: 500 }
-    );
+    if (!Array.isArray(incomingProjects)) {
+      return NextResponse.json({ ok: false, error: "Malformed payload layout structure" }, { status: 400 });
+    }
+
+    const updated = await updateProjects(incomingProjects);
+    return NextResponse.json({ ok: true, projects: updated, content: { projects: updated } });
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
