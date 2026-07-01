@@ -99,10 +99,15 @@ export function PortfolioPage(initialContent: PortfolioPageProps) {
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <ProjectCard project={featured} large />
+              {featured ? <ProjectCard project={featured} large /> : null}
               {rest.map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))}
+              {!featured ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/50">
+                  No projects loaded yet.
+                </div>
+              ) : null}
             </div>
           </div>
 
