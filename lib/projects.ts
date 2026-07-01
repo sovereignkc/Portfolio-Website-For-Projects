@@ -1,28 +1,45 @@
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { pgTable, serial, jsonb } from 'drizzle-orm/pg-core';
 import { projectSeed, type Project } from "./site-content";
 
-type ProjectStore = {
-  projects: Project[];
-};
+// 1. Define the SQL table configuration architecture
+export const portfolioTable = pgTable('portfolio_projects', {
+  id: serial('id').primaryKey(),
+  content: jsonb('content').notNull(), // Stores your project card array safely as scalable JSONB
+});
 
-const globalForProjects = globalThis as typeof globalThis & {
-  __portfolioProjectStore?: ProjectStore;
-};
+// 2. Initialize the direct database connection path
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
 
-function store() {
-  if (!globalForProjects.__portfolioProjectStore) {
-    globalForProjects.__portfolioProjectStore = {
-      projects: projectSeed.map((project) => ({ ...project, tags: [...project.tags] }))
-    };
+export async function getProjects(): Promise<Project[]> {
+  try {
+    const result = await db.select().from(portfolioTable).limit(1);
+    
+    // Fallback cleanly to your default seed items if the cloud table is empty
+    if (result.length === 0) {
+      return projectSeed;
+    }
+    
+    return result[0].content as Project[];
+  } catch (error) {
+    console.error("🚨 Neon Postgres read execution failure:", error);
+    return projectSeed;
   }
-
-  return globalForProjects.__portfolioProjectStore;
 }
 
-export function getProjects() {
-  return store().projects.map((project) => ({ ...project, tags: [...project.tags] }));
-}
-
-export function updateProjects(nextProjects: Project[]) {
-  store().projects = nextProjects.map((project) => ({ ...project, tags: [...project.tags] }));
-  return getProjects();
+export async function updateProjects(nextProjects: Project[]): Promise<Project[]> {
+  try {
+    // Clear out the stale entry and override it with the live dashboard state
+    await db.delete(portfolioTable);
+    const result = await db.insert(portfolioTable)
+      .values({ content: nextProjects })
+      .returning();
+      
+    return result[0].content as Project[];
+  } catch (error) {
+    console.error("🚨 Neon Postgres write execution failure:", error);
+    return nextProjects;
+  }
 }

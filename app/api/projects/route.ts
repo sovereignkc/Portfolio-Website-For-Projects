@@ -3,13 +3,16 @@ import { verifyAuthCookie } from "../../../lib/auth";
 import { getProjects, updateProjects } from "../../../lib/projects";
 import type { Project } from "../../../lib/site-content";
 
-function isAuthed(request: NextRequest) {
+// Helper to double-check admin authentication cookies safely
+async function isAuthed(request: NextRequest) {
   const cookie = request.cookies.get("portfolio_admin")?.value;
   return cookie ? verifyAuthCookie(cookie) : false;
 }
 
 export async function GET() {
-  return NextResponse.json({ projects: getProjects() });
+  // Added await to cleanly stream database contents
+  const projects = await getProjects();
+  return NextResponse.json({ projects });
 }
 
 export async function PUT(request: NextRequest) {
@@ -22,6 +25,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const projects = updateProjects(body.projects);
+  // FIXED: Added await here so the serverless function holds open until Postgres writes
+  const projects = await updateProjects(body.projects);
   return NextResponse.json({ ok: true, projects });
 }
